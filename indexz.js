@@ -8,8 +8,8 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;");
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  LodeOnline.run();
+window.addEventListener("DOMContentLoaded",async () => {
+await  LodeOnline.run();
 
   document.getElementById("output").innerHTML =
     escapeHtml(LodeOnline.lines.join("\n"));

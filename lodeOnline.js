@@ -2223,8 +2223,8 @@ console.log(
       // Logger.log("✅ Xong: đã sort theo % và log 2 mảng 50 số cho từng công thức.");
       Logger.log("Chuỗi copy (50 số): " + this.copy);
 
-    
-      return getLog();  
+   
+    return  this.lines.join("\n");
   },
 
   // =======================
