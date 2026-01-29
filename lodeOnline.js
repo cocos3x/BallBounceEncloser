@@ -2241,7 +2241,13 @@ console.log(
   // FETCH JSON (server-side, KHÔNG cần CORS / proxy)
   // =======================
    async fetchJson(url) {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      "Accept": "application/json",
+      "Referer": "https://xoso188.net/"
+    }
+  });
   if (!res.ok) throw new Error("Fetch failed");
   return await res.json();
 },
