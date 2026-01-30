@@ -1683,7 +1683,7 @@ export const  LodeOnline = {
 
  
       console.log("============================================1");
-      var dataGoc =await this.fetchJson("/api/xoso?type=history");
+      var dataGoc = await this.fetchJson(this.url);
       console.log("============================================2"+ JSON.stringify(dataGoc));
       var issueList = this.ensureIssueList(dataGoc);
 
@@ -2232,7 +2232,7 @@ console.log(
   // =======================
   lay10ngaygannhat: async function () {
     Logger.log("lay10ngaygannhat: gọi API 10 ngày gần nhất...zzz3");
-    var data = await this.fetchJson("/api/xoso?type=list");
+    var data = await this.fetchJson(this.url2);
     var issueList = this.ensureIssueLis2t(data);
     return issueList;
   },
@@ -2241,8 +2241,13 @@ console.log(
   // FETCH JSON (server-side, KHÔNG cần CORS / proxy)
   // =======================
    async fetchJson(url) {
- const fullUrl = `${location.origin}${url}`;
-  const res = await fetch(fullUrl);
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      "Accept": "application/json",
+      "Referer": "https://xoso188.net/"
+    }
+  });
   if (!res.ok) throw new Error("Fetch failed");
   return await res.json();
 },
