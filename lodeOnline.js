@@ -1666,7 +1666,35 @@ export const  LodeOnline = {
   addLine: function (text) {
     this.lines.push(text);
   },
+printTextTable: function (top5) {
+  this.addLine('GỢI Ý LÔ NÊN ĐÁNH');
+  this.addLine('Điều kiện đẹp: Chưa về > Nhịp TB | -3 ≤ Lệch ≤ 1');
+  this.addLine('--------------------------------------------------');
+  this.addLine('# | Số | Điểm | Lần về | Chưa về | Nhịp TB | Lệch | Đánh giá');
+  this.addLine('--------------------------------------------------');
 
+  top5.forEach((item, index) => {
+    let label = 'BỎ';
+
+    if (item.deviation >= -3 && item.deviation <= 1) {
+      label = 'ĐẸP';
+    } else if (item.deviation > 1 && item.deviation <= 3) {
+      label = 'CÂN NHẮC';
+    }
+
+    const line =
+      `${index + 1} | ` +
+      `${item.number} | ` +
+      `${item.score} | ` +
+      `${item.count} | ` +
+      `${item.lastGap} | ` +
+      `${item.gapAvg} | ` +
+      `${item.deviation} | ` +
+      `${label}`;
+
+    this.addLine(line);
+  });
+},
   flushToLog: function () {
     var combined = this.lines.join("\n");
     console.log("combined");
@@ -1710,37 +1738,14 @@ export const  LodeOnline = {
       // Logger.log("History length = " + history.length);
        console.log(history);
        var listLo = this.extractHistoryLo(issueList);
-var params = { recentWindow: 30, minSamples: 5 };
-Logger.log("Lô ngắn ngày");
-  var s = this.streakSummary2(listLo, params);
-  console.log("🎯 2 2số đang chơi: " + (s.currentPick.length ? s.currentPick.join(", ") : "Không có"));
-  this.addLine("📈 Dây hiện tại: " + s.current);
-  this.addLine("🔥 Max WIN: " + s.maxWin);
- this.addLine("❄️ Max LOSS: " + s.maxLoss);
-Logger.log("Lô theo giải đặc biệt 2");
-const opt = {
-  aGap: 1.4,   // thử 1.25 rồi 1.40 xem top10 có đổi không
-  dF2: 2.4,
-  eDec: 1.2,
-  gapCap: 120,      // FIX quan trọng
-  gapMode: "sqrt",  // "sqrt" hoặc "log"
-  recentDays: 200
-};
-     const aaa = this.predictNextNumber(listLo,opt);
-Logger.log("🎯 Dự đoán ngày mai: " + aaa.pick);
-Logger.log("✅ Win rate (all): " + (aaa.estWinRate * 100).toFixed(2) + "%");
-Logger.log("✅ Win rate (recent): " + (aaa.estWinRateRecent * 100).toFixed(2) + "%");
-Logger.log(
-  "📌 Dây hiện tại: " +
-  (aaa.currentStreakType === "WIN"
-    ? "🔥 WIN x" + aaa.currentStreakLen
-    : aaa.currentStreakType === "LOSS"
-      ? "❄️ LOSS x" + aaa.currentStreakLen
-      : "NONE")
-);
 
-Logger.log("🔥 Max WIN: " + aaa.maxWIN);
-Logger.log("❄️ Max LOSS: " + aaa.maxLOSS);
+
+       var listLoz = this.getTop5Loto(listLo);
+      var  sortByPriority = this.sortByPriority(listLoz);
+this.printTextTable(sortByPriority);
+console.table(sortByPriority);
+       
+
 
 
 // var kq = this.trangTrinh_1so(1988,9,18);
@@ -3614,6 +3619,153 @@ extractLO:function (arr) {
     return arr;
   },
 
+
+ analyzeLoto: function (data) {
+    const stats = {};
+
+    for (let i = 0; i <= 99; i++) {
+      stats[i] = {
+        count: 0,
+        days: [],
+        gaps: [],
+        gapAvg: 0,
+        lastGap: null,
+        deviation: 0,
+      };
+    }
+
+    data.forEach((dayArr, dayIndex) => {
+      dayArr.forEach(num => {
+        if (stats[num] !== undefined) {
+          stats[num].count++;
+          stats[num].days.push(dayIndex);
+        }
+      });
+    });
+
+    Object.values(stats).forEach(s => {
+      if (s.days.length > 1) {
+        for (let i = 1; i < s.days.length; i++) {
+          s.gaps.push(s.days[i] - s.days[i - 1]);
+        }
+        const sum = s.gaps.reduce((a, b) => a + b, 0);
+        s.gapAvg = sum / s.gaps.length;
+      }
+
+      if (s.days.length > 0) {
+        s.lastGap = s.days[0];
+      }
+    });
+
+    return stats;
+  },
+
+  /***********************
+   * 2. Tính biên độ lệch
+   ***********************/
+  addDeviation: function (stats) {
+    const totalHits = Object.values(stats)
+      .reduce((sum, s) => sum + s.count, 0);
+
+    const expected = totalHits / 100;
+
+    Object.values(stats).forEach(s => {
+      s.deviation = s.count - expected;
+    });
+
+    return stats;
+  },
+
+  /***********************
+   * 3. Chấm điểm & chọn TOP 5
+   ***********************/
+  pickTop5: function (stats) {
+    const MIN_COUNT = 3;
+    const MAX_DEVIATION = 2;
+
+    const values = Object.values(stats);
+    const avgCount =
+      values.reduce((s, v) => s + v.count, 0) / values.length;
+
+    const scored = [];
+
+    Object.entries(stats).forEach(([num, s]) => {
+      if (
+        s.count >= MIN_COUNT &&
+        s.gapAvg > 0 &&
+        s.lastGap > s.gapAvg &&
+        s.deviation <= MAX_DEVIATION
+      ) {
+        const overdueScore = s.lastGap / s.gapAvg;
+        const reliabilityScore = s.count / avgCount;
+        const deviationPenalty = Math.abs(s.deviation);
+
+        const score =
+          overdueScore * 2 +
+          reliabilityScore -
+          deviationPenalty * 0.5;
+
+        scored.push({
+          number: Number(num),
+          score: Number(score.toFixed(2)),
+          count: s.count,
+          lastGap: s.lastGap,
+          gapAvg: Number(s.gapAvg.toFixed(2)),
+          deviation: Number(s.deviation.toFixed(2)),
+        });
+      }
+    });
+
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+  },
+
+  /***********************
+   * 4. HÀM GỌI DUY NHẤT
+   ***********************/
+  getTop5Loto: function (data) {
+    const stats = this.analyzeLoto(data);
+    this.addDeviation(stats);
+    return this.pickTop5(stats);
+  },
+calcPriorityScore: function (item) {
+  let score = 0;
+
+  // 1️⃣ Đang trễ nhịp → rất quan trọng
+  if (item.lastGap > item.gapAvg) {
+    score += 5;
+  }
+
+  // 2️⃣ deviation càng gần 0 càng tốt
+  // |deviation| <= 3 là vùng đánh
+  const devAbs = Math.abs(item.deviation);
+  if (devAbs <= 3) {
+    score += (3 - devAbs) * 2; // max +6
+  }
+
+  // 3️⃣ Phạt cực nặng nếu trễ sâu (gãy nhịp)
+  if (item.deviation < -5) {
+    score -= 10;
+  }
+
+  // 4️⃣ Count chỉ cộng nhẹ để lọc nhiễu
+  score += Math.min(2, item.count / 150);
+
+  return Number(score.toFixed(2));
+}
+,sortByPriority: function (arr) {
+  arr.forEach(item => {
+    item.priorityScore = this.calcPriorityScore(item);
+  });
+
+  arr.sort((a, b) => {
+    // sort giảm dần theo độ đáng đánh
+    return b.priorityScore - a.priorityScore;
+  });
+
+  return arr;
+},
   predictNextNumber: function (history, opt) {
     opt = opt || {};
 
@@ -4632,6 +4784,7 @@ analyzePredictionArray: function (A) {
     picks.sort(function (a, b) { return b.score - a.score; });
     return picks.slice(0, k);
   }
+  
 };
 
 
