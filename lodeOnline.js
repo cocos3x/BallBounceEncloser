@@ -1774,11 +1774,22 @@ printTextTableDe: function (top5) {
 this.printTextTable(sortByPriority);
 console.table(sortByPriority);
        
-var listDe =    this.getTop25De(history);
+var top25 =    this.getTop25(history);
 
-      var  sortByPriorityDe = this.sortByPriority(listDe);
-this.printTextTableDe(sortByPriorityDe);
-console.table(sortByPriorityDe);
+console.table(top25.map((x, i) => ({
+  Rank: i + 1,
+  So: x.number.toString().padStart(2, '0'),
+  Diem: x.score,
+  LanVe: x.count,
+  ChuaVe: x.lastGap,
+  NhipTB: x.gapAvg,
+  Lech: x.deviation,
+  Overdue: x.overdueRatio
+})));
+   var  sortByPriorityz = this.sortByPriority(top25);
+       this.printTextTable(sortByPriorityz);
+
+
 
 
 // var kq = this.trangTrinh_1so(1988,9,18);
@@ -3769,8 +3780,7 @@ extractLO:function (arr) {
     this.addDeviation(stats);
     return this.pickTop5(stats);
   },
-
-analyzeLoto1D: function (data) {
+ analyzez(history) {
     const stats = {};
 
     // 00 → 99
@@ -3780,20 +3790,20 @@ analyzeLoto1D: function (data) {
         days: [],
         gaps: [],
         gapAvg: 0,
-        lastGap: null,
-        deviation: 0,
+        lastGap: 0,
+        deviation: 0
       };
     }
 
-    // data = [1,2,3,4,...]
-    data.forEach((num, dayIndex) => {
-      if (stats[num] !== undefined) {
+    // history = [92,90,1,77,...]
+    history.forEach((num, dayIndex) => {
+      if (stats[num]) {
         stats[num].count++;
         stats[num].days.push(dayIndex);
       }
     });
 
-    // tính gap
+    // gap + lastGap
     Object.values(stats).forEach(s => {
       if (s.days.length > 1) {
         for (let i = 1; i < s.days.length; i++) {
@@ -3803,10 +3813,9 @@ analyzeLoto1D: function (data) {
         s.gapAvg = sum / s.gaps.length;
       }
 
-      // độ trễ hiện tại (overdue)
       if (s.days.length > 0) {
         const lastDay = s.days[s.days.length - 1];
-        s.lastGap = (data.length - 1) - lastDay;
+        s.lastGap = (history.length - 1) - lastDay;
       }
     });
 
@@ -3814,10 +3823,10 @@ analyzeLoto1D: function (data) {
   },
 
   /***********************
-   * 2. ĐỘ LỆCH THỐNG KÊ
+   * 2. ĐỘ LỆCH PHÂN BỐ
    ***********************/
-  addDeviationDe: function (stats, totalDays) {
-    const expected = totalDays / 100; // phân bố đều xác suất
+  addDeviationz(stats, totalDays) {
+    const expected = totalDays / 100;
 
     Object.values(stats).forEach(s => {
       s.deviation = s.count - expected;
@@ -3827,46 +3836,59 @@ analyzeLoto1D: function (data) {
   },
 
   /***********************
-   * 3. CHẤM ĐIỂM XÁC SUẤT
+   * 3. TOP 25 XÁC SUẤT
    ***********************/
-  pickTop25: function (stats) {
+  getTop25(history) {
 
-    const values = Object.values(stats);
-    const avgCount =
-      values.reduce((s, v) => s + v.count, 0) / values.length;
+    const stats = this.analyzez(history);
+    this.addDeviationz(stats, history.length);
 
     const scored = [];
 
     Object.entries(stats).forEach(([num, s]) => {
 
-      if (s.count === 0 || s.gapAvg === 0) return;
+      if (s.count < 3 || s.gaps.length < 2 || s.gapAvg === 0) return;
 
-      // 🔢 các chỉ số
-      const overdueRatio = s.lastGap / s.gapAvg;      // quá hạn
-      const frequencyScore = s.count / avgCount;      // tần suất
-      const stabilityScore = 1 / (1 + Math.abs(s.deviation)); // ổn định phân bố
+      // ---- Statistical Factors ----
 
-      // 🎯 công thức điểm xác suất
+      // 1. Mean reversion (overdue)
+      const P1 = s.lastGap / s.gapAvg;
+
+      // 2. Distribution stability
+      const P2 = 1 / (1 + Math.abs(s.deviation));
+
+      // 3. Cycle stability (variance)
+      const mean = s.gapAvg;
+      const variance = s.gaps.reduce((acc, g) => acc + Math.pow(g - mean, 2), 0) / s.gaps.length;
+      const P3 = 1 / (1 + variance);
+
+      // 4. Sample reliability
+      const P4 = Math.log(s.count + 1);
+
+      // ---- Weighted Probability Score ----
       const score =
-        overdueRatio * 2.5 +        // ưu tiên quá hạn
-        frequencyScore * 1.5 +      // ưu tiên tần suất
-        stabilityScore * 1.0;       // ưu tiên ổn định
+        (P1 * 0.45) +   // overdue / mean reversion
+        (P2 * 0.25) +   // distribution stability
+        (P3 * 0.20) +   // cycle stability
+        (P4 * 0.10);    // data reliability
 
       scored.push({
         number: Number(num),
-        score: Number(score.toFixed(3)),
+        score: Number(score.toFixed(6)),
         count: s.count,
         lastGap: s.lastGap,
         gapAvg: Number(s.gapAvg.toFixed(2)),
-        deviation: Number(s.deviation.toFixed(2)),
-        overdueRatio: Number(overdueRatio.toFixed(2))
+        deviation: Number(s.deviation.toFixed(3)),
+        overdueRatio: Number(P1.toFixed(2)),
+        variance: Number(variance.toFixed(2))
       });
     });
 
     return scored
       .sort((a, b) => b.score - a.score)
       .slice(0, 25);
-  },
+  }
+,
 
   /***********************
    * 4. HÀM GỌI DUY NHẤT
