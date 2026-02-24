@@ -293,51 +293,42 @@ function testStreaks() {
  */
 function analyzeUnitDigitStreaks(days) {
   const n = days.length;
-  const units = days.map(v => Math.abs(v) % 10); // giữ y như bản gốc
+  const units = days.map(v => Math.abs(v) % 10);
 
   const result = {};
 
   for (let d = 0; d <= 9; d++) {
 
-    // ---- 1) currentMiss: từ ngày mới nhất lùi về sau bao nhiêu ngày chưa gặp d ----
+    // ---- 1) currentMiss ----
     let currentMiss = 0;
     for (let i = 0; i < n; i++) {
-      if (units[i] === d) {
-        break; // gặp lần đầu thì dừng
-      }
+      if (units[i] === d) break;
       currentMiss++;
     }
-    // nếu không gặp lần nào => currentMiss = n
 
-    // ---- 2) Thu thập các dây "không có d" + tính maxMiss giống hệt hàm cũ ----
+    // ---- 2) Thu thập gaps + maxMiss ----
     const gaps = [];
     let run = 0;
     let maxMiss = 0;
 
     for (let i = 0; i < n; i++) {
       if (units[i] === d) {
-        // kết thúc 1 dây không có d
-        if (run > 0) {
-          gaps.push(run);
-        }
+        if (run > 0) gaps.push(run);
         run = 0;
       } else {
         run++;
-        if (run > maxMiss) maxMiss = run; // y hệt hàm gốc
+        if (run > maxMiss) maxMiss = run;
       }
     }
-    // nếu kết thúc mà vẫn còn dây đang chạy
-    if (run > 0) {
-      gaps.push(run);
-    }
 
-    // nếu ngày nào cũng có d → không có dây miss nào
+    if (run > 0) gaps.push(run);
+
     if (gaps.length === 0) {
-      gaps.push(0); // maxMiss lúc này cũng đang = 0 (giống hàm cũ)
+      gaps.push(0);
     }
 
-    // ---- 3) Sắp xếp và gom theo độ dài (len -> count) ----
-    gaps.sort((a, b) => b - a); // giảm dần
+    // ---- 3) Sắp xếp và gom ----
+    gaps.sort((a, b) => b - a);
 
     const lengthCounts = [];
     for (let i = 0; i < gaps.length; i++) {
@@ -360,14 +351,18 @@ function analyzeUnitDigitStreaks(days) {
     const top4 = getTop(3);
     const top5 = getTop(4);
 
-    // ---- 4) Lưu kết quả cho digit d ----
+    // ---- TÍNH ĐỘ CHÊNH LỆCH ----
+    const diffTop1Top2 = top1.len - top2.len;
+    const diffTop2Top3 = top2.len - top3.len;
+    const diffTop3Top4 = top3.len - top4.len;
+    const diffTop4Top5 = top4.len - top5.len;
+
+    // ---- 4) Lưu kết quả ----
     result[d] = {
-      // GIỮ Y NGUYÊN 2 TRƯỜNG NÀY:
       currentMiss: currentMiss,
       maxMiss: maxMiss,
 
-      // thêm thống kê dây
-      maxMissCount: top1.count,      // số lần xuất hiện dây dài nhất
+      maxMissCount: top1.count,
 
       secondMiss: top2.len,
       secondMissCount: top2.count,
@@ -379,7 +374,13 @@ function analyzeUnitDigitStreaks(days) {
       fourthMissCount: top4.count,
 
       fifthMiss: top5.len,
-      fifthMissCount: top5.count
+      fifthMissCount: top5.count,
+
+      // thêm phần chênh lệch
+      diffTop1Top2: diffTop1Top2,
+      diffTop2Top3: diffTop2Top3,
+      diffTop3Top4: diffTop3Top4,
+      diffTop4Top5: diffTop4Top5
     };
   }
 
@@ -1703,13 +1704,13 @@ printTextTableDe: function (top5) {
   this.addLine('--------------------------------------------------');
 
   top5.forEach((item, index) => {
-    let label = 'BỎ';
+    let label = 'XX';
 
-    if (item.deviation >= -3 && item.deviation <= 1) {
-      label = 'ĐẸP';
-    } else if (item.deviation > 1 && item.deviation <= 3) {
-      label = 'CÂN NHẮC';
-    }
+    // if (item.deviation >= -3 && item.deviation <= 1) {
+    //   label = 'ĐẸP';
+    // } else if (item.deviation > 1 && item.deviation <= 3) {
+    //   label = 'CÂN NHẮC';
+    // }
 
     const line =
       `${index + 1} | ` +
@@ -1719,7 +1720,7 @@ printTextTableDe: function (top5) {
       `${item.lastGap} | ` +
       `${item.gapAvg} | ` +
       `${item.deviation} | ` +
-      `${label}`;
+      `${item.overdueRatio}`;
 
     this.addLine(line);
   });
@@ -1773,21 +1774,21 @@ printTextTableDe: function (top5) {
       var  sortByPriority = this.sortByPriority(listLoz);
 this.printTextTable(sortByPriority);
 console.table(sortByPriority);
-       
-var top25 =    this.getTop25(history);
-
-console.table(top25.map((x, i) => ({
-  Rank: i + 1,
-  So: x.number.toString().padStart(2, '0'),
-  Diem: x.score,
-  LanVe: x.count,
-  ChuaVe: x.lastGap,
-  NhipTB: x.gapAvg,
-  Lech: x.deviation,
-  Overdue: x.overdueRatio
-})));
-   var  sortByPriorityz = this.sortByPriority(top25);
-       this.printTextTable(sortByPriorityz);
+        // history[0]= 22;
+// var top25 =    this.getTop25(history);
+// history[0] = 55;
+// console.table(top25.map((x, i) => ({
+//   Rank: i + 1,
+//   So: x.number.toString().padStart(2, '0'),
+//   Diem: x.score,
+//   LanVe: x.count,
+//   ChuaVe: x.lastGap,
+//   NhipTB: x.gapAvg,
+//   Lech: x.deviation,
+//   Overdue: x.overdueRatio
+// })));
+//   //  var  sortByPriorityz = this.sortByPriority(top25);
+//        this.printTextTableDe(top25);
 
 
 
@@ -1810,23 +1811,24 @@ console.table(top25.map((x, i) => ({
 //       this.addLine("TRẠNG TRÌNH PHÁN ngày hôm nay ngũ hành: " + kq3.ngu_hanh_ngay + " can chi: " + kq3.canchi_ngay );
 //  this.addLine("Cho cháu BALUON đẻ vào ngày " + kq3.birth_lunar +  "con " + (kq3.so_choi ));
 
-     this.addLine("===== ĐẦU ĐÍT =====");
-   var resultszz = this.analyzeCau50(history);
+  //    this.addLine("===== ĐẦU ĐÍT =====");
+  //  var resultszz = this.analyzeCau50(history);
    
     //  this.addLine("===== ĐẦU BÉ" +  result.);
-   resultszz.table.forEach(s => {
-        this.addLine(s.name + "  Hiện tại:" + s.currentStreak + " Dài nhất" + s.maxStreakOverall) ;
-});
- this.addLine("===== ĐỀ KÉP =====");
-var zzz = this.top5DayKepChuaVe(history);
+//    resultszz.table.forEach(s => {
+//         this.addLine(s.name + "  Hiện tại:" + s.currentStreak + " Dài nhất" + s.maxStreakOverall) ;
+// });
+//  this.addLine("===== ĐỀ KÉP =====");
 
-  this.addLine('Dây hiện tại chưa về: ' + zzz.dayHienTai + ' ngày');
-  this.addLine('TOP 5 DÂY KÉP CHƯA VỀ:');
+// var zzz = this.top5DayKepChuaVe(history);
 
-  zzz.top5.forEach((d, i) => {
-    let mark = (d === zzz.dayHienTai[0]) ? ' <-- DÂY HIỆN TẠI' : '';
-    this.addLine(`#${i + 1}: ${d} ngày${mark}`);
-  });
+//   this.addLine('Dây hiện tại chưa về: ' + zzz.dayHienTai + ' ngày');
+//   this.addLine('TOP 5 DÂY KÉP CHƯA VỀ:');
+
+//   zzz.top5.forEach((d, i) => {
+//     let mark = (d === zzz.dayHienTai[0]) ? ' <-- DÂY HIỆN TẠI' : '';
+//     this.addLine(`#${i + 1}: ${d} ngày${mark}`);
+//   });
   
 // console.log("=== Thống kê lô (current/max * 100) ===");
 // stats.forEach(s => {
@@ -2124,6 +2126,10 @@ const sorted = Object.keys(unitStats)
 
             this.addLine(
                `ĐÍT ${s.digit}: currentMiss=${s.currentMiss}, Top1=${s.maxMiss},${s.maxMissCount},Top2=${s.secondMiss},${s.secondMissCount},Top3=${s.thirdMiss},${s.thirdMissCount},Top4=${s.fourthMiss},${s.fourthMissCount},Top5=${s.fifthMiss},${s.fifthMissCount},  Tile= ${(s.currentMiss/s.maxMiss*100).toFixed(2)}%`
+               );
+
+                    this.addLine(
+               `Nhip ${s.diffTop1Top2}-${s.diffTop2Top3}-${s.diffTop3Top4}-${s.diffTop4Top5}`
                );
         }
            
