@@ -1696,6 +1696,36 @@ printTextTable: function (top5) {
     this.addLine(line);
   });
 },
+
+printTextTableXien: function (top5) {
+  this.addLine('GỢI Ý LÔ Xien NÊN ĐÁNH');
+  this.addLine('Điều kiện đẹp: Chưa về > Nhịp TB | -3 ≤ Lệch ≤ 1');
+  this.addLine('--------------------------------------------------');
+  this.addLine('# | Số | Điểm | Lần về | Chưa về | Nhịp TB | Lệch | Đánh giá');
+  this.addLine('--------------------------------------------------');
+
+  top5.forEach((item, index) => {
+    let label = 'BỎ';
+
+    if (item.deviation >= -3 && item.deviation <= 1) {
+      label = 'ĐẸP';
+    } else if (item.deviation > 1 && item.deviation <= 3) {
+      label = 'CÂN NHẮC';
+    }
+
+    const line =
+      `${index + 1} | ` +
+      `${item.pair} | ` +
+      `${item.score} | ` +
+      `${item.count} | ` +
+      `${item.lastGap} | ` +
+      `${item.gapAvg} | ` +
+      `${item.deviation} | ` +
+      `${label}`;
+
+    this.addLine(line);
+  });
+},
 printTextTableDe: function (top5) {
   this.addLine('GỢI Ý ĐỀ NÊN ĐÁNH');
   this.addLine('Điều kiện đẹp: Chưa về > Nhịp TB | -3 ≤ Lệch ≤ 1');
@@ -1776,6 +1806,12 @@ history2 = history2.slice().sort((a,b)=>b.openTimeStamp-a.openTimeStamp);
       var  sortByPriority = this.sortByPriority(listLoz);
 this.printTextTable(sortByPriority);
 console.table(sortByPriority);
+
+
+ var listLoxien = this.getTopPair(listLo);
+ console.log("xine=========");
+ console.table(listLoxien);
+ this.printTextTableXien(listLoxien);
         // history[0]= 22;
 // var top25 =    this.getTop25(history);
 // history[0] = 55;
@@ -3780,6 +3816,109 @@ extractLO:function (arr) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
   },
+  getTopPair: function (data) {
+  const stats = this.analyzePair(data);
+  this.addDeviation(stats);
+  return this.pickTopPair(stats);
+},
+analyzePair: function (data) {
+  const stats = {};
+
+  data.forEach((dayArr, dayIndex) => {
+
+    for (let i = 0; i < dayArr.length; i++) {
+      for (let j = i + 1; j < dayArr.length; j++) {
+
+        const a = dayArr[i];
+        const b = dayArr[j];
+
+        const key = a < b ? a + "-" + b : b + "-" + a;
+
+        if (!stats[key]) {
+          stats[key] = {
+            count: 0,
+            days: [],
+            gaps: [],
+            gapAvg: 0,
+            lastGap: null,
+            deviation: 0
+          };
+        }
+
+        stats[key].count++;
+        stats[key].days.push(dayIndex);
+      }
+    }
+
+  });
+
+  Object.values(stats).forEach(s => {
+
+    if (s.days.length > 1) {
+      for (let i = 1; i < s.days.length; i++) {
+        s.gaps.push(s.days[i] - s.days[i - 1]);
+      }
+
+      const sum = s.gaps.reduce((a,b)=>a+b,0);
+      s.gapAvg = sum / s.gaps.length;
+    }
+
+    if (s.days.length > 0) {
+      s.lastGap = s.days[0];
+    }
+
+  });
+
+  return stats;
+},
+pickTopPair: function (stats) {
+
+  const MIN_COUNT = 2;
+  const MAX_DEVIATION = 2;
+
+  const values = Object.values(stats);
+  const avgCount =
+    values.reduce((s,v)=>s+v.count,0) / values.length;
+
+  const scored = [];
+
+  Object.entries(stats).forEach(([pair,s])=>{
+
+    if (
+      s.count >= MIN_COUNT &&
+      s.gapAvg > 0 &&
+      s.lastGap > s.gapAvg &&
+      s.lastGap <= s.gapAvg * 1.5 &&
+      s.deviation <= MAX_DEVIATION
+    ){
+
+      const overdueScore = s.lastGap / s.gapAvg;
+      const reliabilityScore = s.count / avgCount;
+      const deviationPenalty = Math.abs(s.deviation);
+
+      const score =
+        overdueScore * 2 +
+        reliabilityScore -
+        deviationPenalty * 0.5;
+
+      scored.push({
+        pair: pair,
+        score: Number(score.toFixed(2)),
+        count: s.count,
+        lastGap: s.lastGap,
+        gapAvg: Number(s.gapAvg.toFixed(2)),
+        deviation: Number(s.deviation.toFixed(2))
+      });
+
+    }
+
+  });
+
+  return scored
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,5);
+
+},
 
   /***********************
    * 4. HÀM GỌI DUY NHẤT
