@@ -1747,6 +1747,8 @@ printTextTableDe: function (top5) {
 
       // Lấy 10 ngày gần nhất từ url2
       var history2 = await this.lay10ngaygannhat();
+      // sort mới nhất trước
+history2 = history2.slice().sort((a,b)=>b.openTimeStamp-a.openTimeStamp);
 
       // Ghép thêm các bản ghi mới hơn
       var arzz = [];
@@ -3749,9 +3751,10 @@ extractLO:function (arr) {
     Object.entries(stats).forEach(([num, s]) => {
       if (
         s.count >= MIN_COUNT &&
-        s.gapAvg > 0 &&
-        s.lastGap > s.gapAvg &&
-        s.deviation <= MAX_DEVIATION
+  s.gapAvg > 0 &&
+  s.lastGap > s.gapAvg &&
+  s.lastGap <= s.gapAvg * 1.5 &&   // chặn khan
+  s.deviation <= MAX_DEVIATION
       ) {
         const overdueScore = s.lastGap / s.gapAvg;
         const reliabilityScore = s.count / avgCount;
