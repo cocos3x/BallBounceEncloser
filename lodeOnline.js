@@ -3776,7 +3776,7 @@ extractLO:function (arr) {
    ***********************/
   pickTop5: function (stats) {
     const MIN_COUNT = 3;
-    const MAX_DEVIATION = 2;
+    const MAX_DEVIATION = 4;
 
     const values = Object.values(stats);
     const avgCount =
